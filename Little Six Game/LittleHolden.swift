@@ -1,46 +1,38 @@
 import WebKit
-import SwiftUI
 import Foundation
 
-struct KronosWebStage: UIViewRepresentable {
-    @ObservedObject var hydraModel: MedusaVM
-    typealias Coordinator = TritonCoordinator
+class LittleWebCoordinator: NSObject, WKNavigationDelegate {
+    private let littleCallback: (LittleWebStatus) -> Void
+    private var littleDidStart = false
 
-    func makeCoordinator() -> TritonCoordinator {
-        TritonCoordinator(container: self)
+    init(onLittleStatus: @escaping (LittleWebStatus) -> Void) {
+        self.littleCallback = onLittleStatus
     }
-    
-    func makeUIView(context: Context) -> WKWebView {
-        let zeusConfig = WKWebViewConfiguration()
-        zeusConfig.websiteDataStore = WKWebsiteDataStore.nonPersistent()
-        let heraWeb = WKWebView(frame: .zero, configuration: zeusConfig)
-        heraWeb.isOpaque = false
-        heraWeb.backgroundColor = CyclopsColor(rgb: "#141f2b")
-        
-        let titanTypes: Set<String> = [
-            WKWebsiteDataTypeLocalStorage,
-            WKWebsiteDataTypeCookies,
-            WKWebsiteDataTypeDiskCache,
-            WKWebsiteDataTypeMemoryCache
-        ]
-        
-        WKWebsiteDataStore.default().removeData(ofTypes: titanTypes, modifiedSince: Date.distantPast) {}
-        
-        print("WebStage: \(hydraModel.link)")
-        
-        heraWeb.navigationDelegate = context.coordinator
 
-        hydraModel.bindWeb(heraWeb)
-        return heraWeb
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if !littleDidStart { littleCallback(.littleProgressing(progress: 0.0)) }
     }
-    
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        let titanTypes: Set<String> = [
-            WKWebsiteDataTypeLocalStorage,
-            WKWebsiteDataTypeCookies,
-            WKWebsiteDataTypeDiskCache,
-            WKWebsiteDataTypeMemoryCache
-        ]
-        WKWebsiteDataStore.default().removeData(ofTypes: titanTypes, modifiedSince: Date.distantPast) {}
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        littleDidStart = false
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        littleCallback(.littleFinished)
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        littleCallback(.littleFailure(reason: error.localizedDescription))
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        littleCallback(.littleFailure(reason: error.localizedDescription))
+    }
+
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.navigationType == .other && webView.url != nil {
+            littleDidStart = true
+        }
+        decisionHandler(.allow)
     }
 }

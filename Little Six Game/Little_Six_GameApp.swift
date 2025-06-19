@@ -4,7 +4,7 @@ import SwiftUI
 struct AtlantisApp: App {
     var body: some Scene {
         WindowGroup {
-            OdysseyEntry()
+            LittleGameInitialView()
         }
     }
 }

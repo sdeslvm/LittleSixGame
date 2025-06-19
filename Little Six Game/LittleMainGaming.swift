@@ -1,30 +1,51 @@
-import Foundation
 import SwiftUI
+import Foundation
 
-class CyclopsColor: UIColor {
-    convenience init(rgb: String) {
-        let clean = rgb.trimmingCharacters(in: .alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: clean).scanHexInt64(&value)
-        let r = CGFloat((value & 0xFF0000) >> 16) / 255.0
-        let g = CGFloat((value & 0x00FF00) >> 8) / 255.0
-        let b = CGFloat(value & 0x0000FF) / 255.0
-        self.init(red: r, green: g, blue: b, alpha: 1.0)
+struct LittleGameEntryScreen: View {
+    @StateObject private var littleLoader: LittleWebLoader
+
+    init(littleLoader: LittleWebLoader) {
+        _littleLoader = StateObject(wrappedValue: littleLoader)
     }
-}
 
-func launchOdyssey() -> some View {
-    let url = URL(string: "https://littlesixgame.top/get")!
-    return PoseidonScreen(vm: .init(link: url))
-        .background(Color(CyclopsColor(rgb: "#373332")))
-}
-
-struct OdysseyEntry: View {
     var body: some View {
-        launchOdyssey()
+        ZStack {
+            LittleWebViewBox(littleLoader: littleLoader)
+                .opacity(littleLoader.littleState == .littleFinished ? 1 : 0.5)
+            switch littleLoader.littleState {
+            case .littleProgressing(let percent):
+                LittleProgressIndicator(littleValue: percent)
+            case .littleFailure(let err):
+                LittleErrorIndicator(littleErr: err) // err теперь String
+            case .littleNoConnection:
+                LittleOfflineIndicator()
+            default:
+                EmptyView()
+            }
+        }
     }
 }
 
-#Preview {
-    OdysseyEntry()
+private struct LittleProgressIndicator: View {
+    let littleValue: Double
+    var body: some View {
+        GeometryReader { geo in
+            LittleLoadingOverlay(littleProgress: littleValue)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .background(Color.black)
+        }
+    }
+}
+
+private struct LittleErrorIndicator: View {
+    let littleErr: String // было Error, стало String
+    var body: some View {
+        Text("Ошибка: \(littleErr)").foregroundColor(.red)
+    }
+}
+
+private struct LittleOfflineIndicator: View {
+    var body: some View {
+        Text("Нет соединения").foregroundColor(.gray)
+    }
 }

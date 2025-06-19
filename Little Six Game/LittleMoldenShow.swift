@@ -1,56 +1,131 @@
-import WebKit
+import Foundation
 import SwiftUI
+import WebKit
 
-class MedusaVM: ObservableObject {
-    @Published var krakenStatus: KrakenState = .idle
-    let link: URL
-    private var webRef: WKWebView?
-    private var progressObs: NSKeyValueObservation?
-    private var progressValue: Double = 0.0
+// MARK: - Протоколы
+
+/// Протокол для состояний загрузки с расширенной функциональностью
+protocol LittleWebLoadStateRepresentable {
+    var littleType: LittleWebLoadState.LittleStateType { get }
+    var littlePercent: Double? { get }
+    var littleError: String? { get }
     
-    init(link: URL) {
-        self.link = link
-    }
+    func isLittleEqual(to other: Self) -> Bool
+}
+
+// MARK: - Улучшенная структура состояния загрузки
+
+/// Структура для представления состояний веб-загрузки
+struct LittleWebLoadState: Equatable, LittleWebLoadStateRepresentable {
+    // MARK: - Перечисление типов состояний
     
-    func bindWeb(_ webView: WKWebView) {
-        self.webRef = webView
-        observeWebProgress(webView)
-        reloadWeb()
-    }
-    
-    func reloadWeb() {
-        guard let webView = webRef else { return }
-        let req = URLRequest(url: link, timeoutInterval: 15.0)
-        DispatchQueue.main.async { [weak self] in
-            self?.krakenStatus = .progress(percent: 0.0)
-            self?.progressValue = 0.0
-        }
-        webView.load(req)
-    }
-    
-    private func observeWebProgress(_ webView: WKWebView) {
-        progressObs = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
-            let prog = webView.estimatedProgress
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                if prog > self.progressValue {
-                    self.progressValue = prog
-                    self.krakenStatus = .progress(percent: self.progressValue)
-                }
-                if prog >= 1.0 {
-                    self.krakenStatus = .done
-                }
+    /// Типы состояний загрузки с порядковым номером
+    enum LittleStateType: Int, CaseIterable {
+        case littleIdle = 0
+        case littleProgress
+        case littleSuccess
+        case littleError
+        case littleOffline
+        
+        /// Человекочитаемое описание состояния
+        var littleDescription: String {
+            switch self {
+            case .littleIdle: return "Ожидание"
+            case .littleProgress: return "Загрузка"
+            case .littleSuccess: return "Успешно"
+            case .littleError: return "Ошибка"
+            case .littleOffline: return "Нет подключения"
             }
         }
     }
     
-    func setOnline(_ isOnline: Bool) {
-        if isOnline && krakenStatus == .offline {
-            reloadWeb()
-        } else if !isOnline {
-            DispatchQueue.main.async { [weak self] in
-                self?.krakenStatus = .offline
-            }
+    // MARK: - Свойства
+    
+    let littleType: LittleStateType
+    let littlePercent: Double?
+    let littleError: String?
+    
+    // MARK: - Статические конструкторы
+    
+    /// Создание состояния простоя
+    static func littleIdle() -> LittleWebLoadState {
+        LittleWebLoadState(littleType: .littleIdle, littlePercent: nil, littleError: nil)
+    }
+    
+    /// Создание состояния прогресса
+    static func littleProgress(_ percent: Double) -> LittleWebLoadState {
+        LittleWebLoadState(littleType: .littleProgress, littlePercent: percent, littleError: nil)
+    }
+    
+    /// Создание состояния успеха
+    static func littleSuccess() -> LittleWebLoadState {
+        LittleWebLoadState(littleType: .littleSuccess, littlePercent: nil, littleError: nil)
+    }
+    
+    /// Создание состояния ошибки
+    static func littleError(_ err: String) -> LittleWebLoadState {
+        LittleWebLoadState(littleType: .littleError, littlePercent: nil, littleError: err)
+    }
+    
+    /// Создание состояния отсутствия подключения
+    static func littleOffline() -> LittleWebLoadState {
+        LittleWebLoadState(littleType: .littleOffline, littlePercent: nil, littleError: nil)
+    }
+    
+    // MARK: - Методы сравнения
+    
+    /// Пользовательская реализация сравнения
+    func isLittleEqual(to other: LittleWebLoadState) -> Bool {
+        guard littleType == other.littleType else { return false }
+        
+        switch littleType {
+        case .littleProgress:
+            return littlePercent == other.littlePercent
+        case .littleError:
+            return littleError == other.littleError
+        default:
+            return true
+        }
+    }
+    
+    // MARK: - Реализация Equatable
+    
+    static func == (lhs: LittleWebLoadState, rhs: LittleWebLoadState) -> Bool {
+        lhs.isLittleEqual(to: rhs)
+    }
+}
+
+// MARK: - Расширения для улучшения функциональности
+
+extension LittleWebLoadState {
+    /// Проверка текущего состояния
+    var isLittleLoading: Bool {
+        littleType == .littleProgress
+    }
+    
+    /// Проверка успешного состояния
+    var isLittleSuccessful: Bool {
+        littleType == .littleSuccess
+    }
+    
+    /// Проверка состояния ошибки
+    var hasLittleError: Bool {
+        littleType == .littleError
+    }
+}
+
+// MARK: - Расширение для отладки
+
+extension LittleWebLoadState: CustomStringConvertible {
+    /// Строковое представление состояния
+    var description: String {
+        switch littleType {
+        case .littleIdle: return "Состояние: Ожидание"
+        case .littleProgress: return "Состояние: Загрузка (\(littlePercent?.formatted() ?? "0")%)"
+        case .littleSuccess: return "Состояние: Успешно"
+        case .littleError: return "Состояние: Ошибка (\(littleError ?? "Неизвестная ошибка"))"
+        case .littleOffline: return "Состояние: Нет подключения"
         }
     }
 }
+
